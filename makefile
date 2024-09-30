@@ -9,8 +9,8 @@ LDFLAGS=-lrt -lpthread
 INTERCHIPLET_C_LIB=$(SIMULATOR_ROOT)/interchiplet/lib/libinterchiplet_c.a
 
 # C/C++ Source files
-BFS_SRCS= bfs.cpp
-BFS_BLOCK_SRCS= bfs_block.cpp
+BFS_SRCS= bfs.cpp 
+BFS_BLOCK_SRCS= bfs_block.cpp kernel.cpp
 
 # Object files
 BFS_OBJS=$(patsubst %.cpp, obj/%.o, $(BFS_SRCS))

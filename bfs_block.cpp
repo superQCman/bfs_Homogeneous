@@ -1,122 +1,68 @@
 #include <iostream>
 #include <vector>
 #include <queue>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <unordered_map>
-#include <list>
-#include <random>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#include "graph.h"
+#include "kernel.h"
 #include "apis_c.h"
 
-class Graph {
-public:
-    std::unordered_map<int, std::list<std::pair<int, int>>> adj; // 邻接表，存储边和边的长度
 
-    void addEdge(int v, int w, int length) {
-        adj[v].emplace_back(w, length); // 添加一个从v到w的边，长度为length
-    }
-};
-
-void bfs(Graph const& graph, int start_vertex, bool* visited) {
-    std::queue<int> queue;
-    std::mutex queue_mutex;
-    std::condition_variable cv;
-
-    visited[start_vertex] = true;
-    queue.push(start_vertex);
-
-    auto worker = [&]() {
-        while (true) {
-            int current_vertex = 0;
-            {
-                std::unique_lock<std::mutex> lock(queue_mutex);
-                if (!queue.empty()) {
-                    current_vertex = queue.front();
-                    queue.pop();
-                }
-                else {
-                    break;
-                }
-            }
-            std::cout<<"------------------------------------------------------------------------------------------"<<std::endl;
-            std::cout << "Visited " << current_vertex << std::endl;
-            std::cout<<"------------------------------------------------------------------------------------------"<<std::endl;
-            for (const auto& neighbor : graph.adj.at(current_vertex)) {
-                std::lock_guard<std::mutex> lock(queue_mutex);
-                if (!visited[neighbor.first]) {
-                    visited[neighbor.first] = true;
-                    queue.push(neighbor.first);
-                    cv.notify_all();  // 通知等待的线程
-                }
-            }
-        }
-     };
-
-    // 创建两个线程
-    std::thread t1(worker);
-    std::thread t2(worker);
-    // 等待两个线程结束
-    t1.join();
-    t2.join();
+void bfs(Node* h_graph_nodes, int* h_graph_edges, bool* h_graph_mask, bool* h_graph_visited, int* h_cost, int no_of_nodes, int edge_list_size) {
+    bool h_over;
+    do {
+        h_over = false;
+        bfsKernel(h_graph_nodes, h_graph_edges, h_graph_mask, h_graph_visited, h_cost, &h_over, no_of_nodes);
+    } while (h_over);
 }
 
-int main(int argc, char **argv){
-    Graph g;
+int main(int argc, char **argv) {
     int idX = atoi(argv[1]);
     int idY = atoi(argv[2]);
-    int num_edges = 200; // 总共添加200条边
-    float *start = new float[200];
-    float *end = new float[200];
-    float *Length = new float[200];
+    int no_of_nodes = 6;
+    int edge_list_size = 8;
 
-    InterChiplet::receiveMessage(idX, idY, 0, 0, start, 200 * sizeof(float));
-    for (int i = 0; i < num_edges; ++i) {
-        std::cout << "start[" << i << "] = " << start[i] << std::endl;
+
+    int *h_graph_nodes_start = new int[no_of_nodes];
+
+
+    int *h_graph_nodes_no_of_edges = new int[no_of_nodes];
+
+
+
+    int *h_graph_edges = new int[edge_list_size];
+
+
+    bool *h_graph_mask = new bool[no_of_nodes];
+
+
+    bool *h_graph_visited = new bool[no_of_nodes];
+
+    int *h_cost = new int[no_of_nodes];
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_graph_nodes_start, no_of_nodes * sizeof(int));
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_graph_nodes_no_of_edges, no_of_nodes * sizeof(int));
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_graph_edges, edge_list_size * sizeof(int));
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_graph_mask, no_of_nodes * sizeof(bool));
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_graph_visited, no_of_nodes * sizeof(bool));
+    InterChiplet::receiveMessage(idX, idY, 0, 0, h_cost, no_of_nodes * sizeof(int));
+
+    Node *h_graph_nodes = new Node[no_of_nodes];
+
+    for (int i = 0; i < no_of_nodes; ++i) {
+        h_graph_nodes[i].starting = h_graph_nodes_start[i];
+        h_graph_nodes[i].no_of_edges = h_graph_nodes_no_of_edges[i];
     }
-    InterChiplet::receiveMessage(idX, idY, 0, 0, end, 200 * sizeof(float));
-    InterChiplet::receiveMessage(idX, idY, 0, 0, Length, 200 * sizeof(float));
-    int start_vertex=0;
-    InterChiplet::receiveMessage(idX, idY, 0, 0, &start_vertex, sizeof(int));
-
-    // 打开共享内存对象
-    int shm_fd = shm_open("/visited", O_RDWR, 0666);
-    if (shm_fd == -1) {
-        perror("shm_open");
-        return 1;
+    bfs(h_graph_nodes, h_graph_edges, h_graph_mask, h_graph_visited, h_cost, no_of_nodes, edge_list_size);
+    for (int i = 0; i < no_of_nodes; i++) {
+        std::cout << "Node " << i << " cost: " << h_cost[i] << std::endl;
     }
+    InterChiplet::sendMessage(0, 0, idX, idY,  h_cost, no_of_nodes * sizeof(int));
 
-    // 映射共享内存
-    bool* visited = static_cast<bool*>(mmap(nullptr, 100 * sizeof(bool), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0));
-    if (visited == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
+    delete[] h_graph_nodes;
+    delete[] h_graph_nodes_start;
+    delete[] h_graph_nodes_no_of_edges;
+    delete[] h_graph_edges;
+    delete[] h_graph_mask;
+    delete[] h_graph_visited;
+    delete[] h_cost;
 
-    for (int i = 0; i < num_edges; ++i) {
-        int v = start[i];
-        int w = end[i];
-        if (v != w) { // 避免自环
-            int length = Length[i];
-            g.addEdge(v, w, length);
-        }
-    }
-    for (int i = 0; i < 100; i++) {
-        g.addEdge(i, i, 0);
-    }
-    bfs(g, start_vertex, visited);
-
-    // 解除映射和关闭共享内存
-    munmap(visited, 100 * sizeof(bool));
-    close(shm_fd);
-
-    delete[] start;
-    delete[] end;
-    delete[] Length;
-    bool END = true;
-    InterChiplet::sendMessage( 0, 0,idX, idY, &END, sizeof(bool));
     return 0;
 }
