@@ -9,6 +9,7 @@
 #include <cstring>
 #include "apis_c.h"
 #include "graph.h"
+#include <semaphore.h>
 
 
 void send(int idX, int idY, int *h_graph_nodes_start, int *h_graph_nodes_no_of_edges, int *h_graph_edges, int no_of_nodes, int edge_list_size, int *tid) {
