@@ -1,6 +1,6 @@
 # Project environment
 # SIMULATOR_ROOT, defined by setup_env.sh
-BENCHMARK_ROOT=$(SIMULATOR_ROOT)/benchmark/test/gem5/launch
+BENCHMARK_ROOT=$(SIMULATOR_ROOT)/benchmark/bfs
 
 # Compiler environment of C/C++
 CC=g++
