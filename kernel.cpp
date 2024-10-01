@@ -8,12 +8,13 @@
 #include <semaphore.h>
 
 void bfsKernel(int tid,Node* g_graph_nodes, int* g_graph_edges, bool* g_graph_mask, bool* g_graph_visited, int* g_cost, bool* g_over, int no_of_nodes) {
-    sem_t *sem = sem_open("/sem", O_CREAT, 0644, 1); // 加了信号量，可能导致并发度降低，但是可以保证数据一致性，如果希望提高并发度，可以去掉信号量
-    if (sem == SEM_FAILED) {
-        perror("sem_open");
-        exit(EXIT_FAILURE);
-    }
-    sem_wait(sem);
+    // 这里加信号量会导致报错，暂时注释掉
+    // sem_t *sem = sem_open("/sem", O_CREAT, 0644, 1); // 加了信号量，可能导致并发度降低，但是可以保证数据一致性，如果希望提高并发度，可以去掉信号量
+    // if (sem == SEM_FAILED) {
+    //     perror("sem_open");
+    //     exit(EXIT_FAILURE);
+    // }
+    // sem_wait(sem);
     if (g_graph_mask[tid]) {
         g_graph_mask[tid] = false;
         g_graph_visited[tid] = true;
@@ -26,5 +27,5 @@ void bfsKernel(int tid,Node* g_graph_nodes, int* g_graph_edges, bool* g_graph_ma
             }
         }
     }
-    sem_post(sem);
+    // sem_post(sem);
 }
